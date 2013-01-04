@@ -1,7 +1,9 @@
-#!/usr/local/bin/python2.7
+#!/usr/bin/python
 # encoding: utf-8
 '''
 Created on Jan 4, 2013
+
+http://code.google.com/p/tumblr-cli/
 
 @author: christian.klofver@gmail.com
 '''
@@ -15,9 +17,12 @@ import time
 import pdb
 import os.path
 import traceback
+import urllib
 
 
 class TumblrHandler(object):
+    EXPIRY_TIME = 86400000  # TODO: dummy value, how long is really the expiry time?
+
     def __init__(self, p_config_file):
         self.config_file = p_config_file
         self.cp = ConfigParser.ConfigParser()
@@ -51,12 +56,12 @@ class TumblrHandler(object):
         return oauth2.Token(self.cp.get(p_blog, 'access_key'),
                             self.cp.get(p_blog, 'access_secret'))
 
-    def authorize(self, p_blog):
+    def authorize(self, p_blog, p_force):
         consumer_key = self.get_set('consumer', 'key')
         consumer_secret = self.get_set('consumer', 'secret')
         tumblr_oauth = tumblr.oauth.TumblrOAuthClient(consumer_key,
                                                       consumer_secret)
-        self.get_oauth_access(tumblr_oauth, p_blog)
+        self.get_oauth_access(tumblr_oauth, p_blog, p_force)
         self.write_config()
 
     def write_config(self):
@@ -78,21 +83,23 @@ class TumblrHandler(object):
             self.cp.set(p_section, p_option, value)
         return value
 
-    def get_oauth_access(self, p_tumblr_oauth, p_blog):
+    def get_oauth_access(self, p_tumblr_oauth, p_blog, p_force):
+        access_key = None
+        access_secret = None
+        oauth_verifier_ts = None
         try:
-            access_key = self.cp.get(p_blog, 'access_key')
-            access_secret = self.cp.get(p_blog, 'access_secret')
-            oauth_verifier_ts = self.cp.get(p_blog, 'oauth_verifier_ts')
+            if not p_force:
+                access_key = self.cp.get(p_blog, 'access_key')
+                access_secret = self.cp.get(p_blog, 'access_secret')
+                oauth_verifier_ts = self.cp.getint(p_blog, 'oauth_verifier_ts')
         except:
-            access_key = None
-            access_secret = None
-            oauth_verifier_ts = None
+            pass
         if (access_key == None or access_secret == None or
             oauth_verifier_ts == None or
-            oauth_verifier_ts + cls.EXPIRY_TIME < time.time()):
-            authorize_url = p_tumblr_oauth.get_authorize_url()
+            oauth_verifier_ts + self.EXPIRY_TIME < time.time()):
+            authorize_url = self.get_authorize_url(p_tumblr_oauth)
             print "Visit: %s" % authorize_url
-            oauth_verifier = raw_input('What is the oauth_verifier?')
+            oauth_verifier = raw_input('What is the oauth_verifier? ')
             if not self.cp.has_section(p_blog):
                 self.cp.add_section(p_blog)
             access_token = p_tumblr_oauth.get_access_token(oauth_verifier)
@@ -104,6 +111,10 @@ class TumblrHandler(object):
             self.cp.set(p_blog, 'access_secret', access_secret)
         return (access_key, access_secret)
 
+    def get_authorize_url(self, p_tumblr_oauth):
+        return (p_tumblr_oauth.get_authorize_url() +
+                urllib.urlencode({'oauth_callback':
+                                  "http://www.klofver.eu/tumblr-cli"}))
 
 def get_argparser():
     argparser = argparse.ArgumentParser(description='Tumblr Command Line Interface')
@@ -116,8 +127,10 @@ def get_argparser():
     argparser.add_argument('--param', metavar='KEY=VAL', action='append',
                            help=('Extra parameter. See valid parameters and values'
                                  ' here: http://www.tumblr.com/api_docs'))
+    argparser.add_argument('--forceauth', action='store_true', default=False,
+                           help='Reauthorize to blog even if there already is a valid access token.')
     argparser.add_argument('--config', metavar='FILE', default="~/.tumblr-cli/config", help="Configuration file")
-    argparser.add_argument('--pdb', action='store_true', default=True,  # TODO: should be false
+    argparser.add_argument('--pdb', action='store_true', default=False,
                            help='Puts you in pdb mode if any exceptions are raised.')
     return argparser
 
@@ -146,15 +159,14 @@ if __name__ == '__main__':
         make_config_structure(args.config,
                               parser.get_default('config'))
         handler = TumblrHandler(os.path.expanduser(args.config))
-        if args.authorize:
-            handler.authorize(args.blog)
+        if args.authorize or args.forceauth:
+            handler.authorize(args.blog, args.forceauth)
         if args.post_text:
             handler.post_text(args.blog,
                               args.post_text,
                               args.title,
                               param_to_dict(args.param))
     except:
+        print traceback.format_exc()
         if args.pdb:
             pdb.post_mortem()
-        traceback.print_stack()
-    print "Goodbye."
