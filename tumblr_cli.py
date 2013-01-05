@@ -9,15 +9,17 @@ http://code.google.com/p/tumblr-cli/
 '''
 
 import tumblr
-import tumblr.oauth
+import tumblr.oauth as real_tumblr_oauth
+import oauth2
+tumblr.oauth = oauth2  # Because relative import is blocking tumblr lib from functioning
 import ConfigParser
 import argparse
-import oauth2
 import time
 import pdb
 import os.path
 import traceback
 import urllib
+import sys
 
 
 class TumblrHandler(object):
@@ -59,8 +61,8 @@ class TumblrHandler(object):
     def authorize(self, p_blog, p_force):
         consumer_key = self.get_set('consumer', 'key')
         consumer_secret = self.get_set('consumer', 'secret')
-        tumblr_oauth = tumblr.oauth.TumblrOAuthClient(consumer_key,
-                                                      consumer_secret)
+        tumblr_oauth = real_tumblr_oauth.TumblrOAuthClient(consumer_key,
+                                                           consumer_secret)
         self.get_oauth_access(tumblr_oauth, p_blog, p_force)
         self.write_config()
 
@@ -77,7 +79,7 @@ class TumblrHandler(object):
             value = None
             print "No value for %s.%s found.\n" % (p_section, p_option)
         if value == None and p_ask:
-            value = raw_input('What is the value for %s.%s?' % (p_section, p_option))
+            value = raw_input('What is the value for %s.%s? ' % (p_section, p_option))
             if not self.cp.has_section(p_section):
                 self.cp.add_section(p_section)
             self.cp.set(p_section, p_option, value)
@@ -112,7 +114,7 @@ class TumblrHandler(object):
         return (access_key, access_secret)
 
     def get_authorize_url(self, p_tumblr_oauth):
-        return (p_tumblr_oauth.get_authorize_url() +
+        return (p_tumblr_oauth.get_authorize_url() + "&" +
                 urllib.urlencode({'oauth_callback':
                                   "http://www.klofver.eu/tumblr-cli"}))
 
@@ -152,13 +154,16 @@ def make_config_structure(p_requested_config_file, p_default_config_file):
             print "No such directory: %s" % confdir
             exit(4)
 
-if __name__ == '__main__':
+def main():
     parser = get_argparser()
     args = parser.parse_args()
     try:
         make_config_structure(args.config,
                               parser.get_default('config'))
         handler = TumblrHandler(os.path.expanduser(args.config))
+        if args.blog == None:
+            print "No blog to act on. Specify --blog=<BLOG>"
+            exit(9)
         if args.authorize or args.forceauth:
             handler.authorize(args.blog, args.forceauth)
         if args.post_text:
@@ -170,3 +175,7 @@ if __name__ == '__main__':
         print traceback.format_exc()
         if args.pdb:
             pdb.post_mortem()
+
+if __name__ == '__main__':
+    main()
+

@@ -11,10 +11,11 @@ http://code.google.com/p/tumblr-cli/
 from distutils.core import setup
 setup(name='tumblr-cli',
       description='Python Tumblr CLI',
-      version='1.0',
+      version='1.1',
       url='http://code.google.com/p/tumblr-cli/',
       author='Christian Klöfver',
       author_email='christian.klofver@gmail.com',
-      install_requires=['oauth2', 'tumblr2'],
-      py_modules=['tumblr-cli'],
+      install_requires=['argparse', 'oauth2', 'tumblr2'],
+      py_modules=['tumblr_cli'],
+      entry_points={'console_scripts': ['tumblr-cli = tumblr_cli:main']},
       )
