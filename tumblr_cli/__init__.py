@@ -131,7 +131,8 @@ def get_argparser():
                                  ' here: http://www.tumblr.com/api_docs'))
     argparser.add_argument('--forceauth', action='store_true', default=False,
                            help='Reauthorize to blog even if there already is a valid access token.')
-    argparser.add_argument('--config', metavar='FILE', default="~/.tumblr-cli/config", help="Configuration file")
+    argparser.add_argument('--config', metavar='FILE', default="~/.tumblr-cli/config",
+                           help="Configuration file. Default: [%(default)s]")
     argparser.add_argument('--pdb', action='store_true', default=False,
                            help='Puts you in pdb mode if any exceptions are raised.')
     return argparser
