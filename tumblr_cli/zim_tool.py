@@ -56,8 +56,8 @@ def main():
                           tumblr_cli.param_to_dict(args.param))
     except:
         print traceback.format_exc()
-        # if args.pdb:
-        pdb.post_mortem()
+        if args.pdb:
+            pdb.post_mortem()
 
 if __name__ == '__main__':
     main()

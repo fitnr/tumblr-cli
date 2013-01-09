@@ -45,10 +45,11 @@ class TumblrHandler(object):
     def post(self, p_blog, p_params):
         """ Post to blog, see defined params here: http://www.tumblr.com/api_docs#posting
         """
-        client = tumblr.TumblrClient(p_blog,
-                                     self.get_consumer(),
-                                     self.get_access_token(p_blog))
+        client = self.get_client(p_blog)
         client.create_post(p_params)
+
+    def get_client(self, p_blog):
+        return tumblr.TumblrClient(p_blog, self.get_consumer(), self.get_access_token(p_blog))
 
     def get_consumer(self):
         return oauth2.Consumer(self.cp.get('consumer', 'key'),
