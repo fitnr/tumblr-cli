@@ -108,15 +108,24 @@ class BackupHandler(object):
                 # [u'blog_updated', u'blog_posts', u'blog_ask', u'blog_url', u'blog_share_likes', 'backup_cmd', u'blog_name', u'blog_title', u'blog_description']
                 save_path = p_path % path_dict
                 meta_dict = dict(post_dict)
-                meta_dict.pop('body')
+                if meta_dict['type'] == 'text':
+                    body = meta_dict.pop('body')
+                elif meta_dict['type'] == 'photo':
+                    body = meta_dict.pop('caption')
+                elif meta_dict['type'] == 'quote':
+                    body = meta_dict.pop('source')
+                else:
+                    body = None
                 meta_path = "%s.meta" % save_path
                 if self.is_updated(meta_path, meta_dict):
                     self.save_file(meta_path, meta_dict, p_check=False)
-                    self.save_file("%s.html" % save_path, post_dict['body'], p_check=False)
-                    self.save_images("%s.img" % save_path, post_dict['body'])
+                    if body:
+                        self.save_file("%s.html" % save_path, body, p_check=False)
+                    self.save_images("%s.img" % save_path, post_dict)
                 else:
                     self.register_file("%s.meta" % save_path, False)
-                    self.register_file("%s.html" % save_path, False)
+                    if body:
+                        self.register_file("%s.html" % save_path, False)
                     self.register_file("%s.img/*" % save_path, False)
 
     def register_file(self, p_file, p_updated=True):
@@ -165,8 +174,13 @@ class BackupHandler(object):
         openfile.close()
         return blog_updated_ts > file_updated_ts
 
-    def save_images(self, p_dir, p_body):
-        image_urls = self.extract_image_urls(p_body)
+    def save_images(self, p_dir, p_post_dict):
+        if p_post_dict['type'] == 'text':
+            image_urls = self.extract_image_urls_from_text(p_post_dict)
+        elif p_post_dict['type'] == 'photo':
+            image_urls = self.extract_image_urls_from_photo(p_post_dict)
+        else:
+            image_urls = []
         for image_url in image_urls:
             self.save_image(p_dir, image_url)
 
@@ -184,8 +198,14 @@ class BackupHandler(object):
     def url2filename(self, p_image_url):
         return p_image_url.replace("/", "_").replace(":", "_")
 
-    def extract_image_urls(self, p_body):
-        return re.findall('src=\"(http://media.tumblr.com/[^\"]*)\"', p_body)
+    def extract_image_urls_from_text(self, p_post_dict):
+        return re.findall('src=\"(http://media.tumblr.com/[^\"]*)\"', p_post_dict['body'])
+
+    def extract_image_urls_from_photo(self, p_post_dict):
+        ret_list = []
+        for photo_dict in p_post_dict['photos']:
+            ret_list.append(photo_dict['original_size']['url'])
+        return ret_list
 
     def strip_double_slashes(self, p_str):
         if not type(p_str) is list:
@@ -231,7 +251,7 @@ def main():
         if args.post_type == 'all':
             args.post_type = None
         handler = tumblr_cli.TumblrHandler(os.path.expanduser(args.config))
-        client = handler.get_client(args.blog)
+        client = handler.get_unauthorized_client(args.blog)
         posts = client.get_blog_posts(args.post_type,
                                       tumblr_cli.param_to_dict(args.param))
         bh = BackupHandler(args.root)

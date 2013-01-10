@@ -40,16 +40,33 @@ class TumblrHandler(object):
         params = {'type':'text', 'state':'draft', 'title':p_title, 'body':text}
         if p_params:
             params.update(p_params)
-        self.post(p_blog, params)
+        print self.post(p_blog, params)
+
+    def post_image(self, p_blog, p_file, p_caption, p_params):
+        openfile = None
+        if p_file == "-":
+            data = sys.stdin.read()
+        else:
+            openfile = open(p_file, 'rb')
+            # data = openfile
+            data = openfile.read().encode('base64').encode('utf8')
+            openfile.close()
+        params = {'type':'photo', 'state':'draft', 'caption':p_caption, 'data[0]':data}
+        if p_params:
+            params.update(p_params)
+        print self.post(p_blog, params)
 
     def post(self, p_blog, p_params):
         """ Post to blog, see defined params here: http://www.tumblr.com/api_docs#posting
         """
         client = self.get_client(p_blog)
-        client.create_post(p_params)
+        return client.create_post(p_params)
 
     def get_client(self, p_blog):
         return tumblr.TumblrClient(p_blog, self.get_consumer(), self.get_access_token(p_blog))
+
+    def get_unauthorized_client(self, p_blog):
+        return tumblr.TumblrClient(p_blog, self.get_consumer())
 
     def get_consumer(self):
         return oauth2.Consumer(self.cp.get('consumer', 'key'),
@@ -121,10 +138,12 @@ class TumblrHandler(object):
 
 def get_argparser():
     argparser = argparse.ArgumentParser(description='Tumblr Command Line Interface')
-    argparser.add_argument('--blog', action='store', help='The blog to act on. E.g staff.tumblr.com or www.klofver.eu')
+    argparser.add_argument('--blog', action='store', metavar='BLOG',
+                           help='The blog to act on. E.g staff.tumblr.com or www.klofver.eu')
     argparser.add_argument('--authorize', action='store_true', default=False,
                            help='Authorize to blog')
     argparser.add_argument('--post_text', metavar='FILE', help='Post a text file to your blog')
+    argparser.add_argument('--post_image', metavar='FILE', help='Post a photo file to your blog')
     argparser.add_argument('--title', action='store', default='tumblr-cli post',
                            help='The title to be used in posts')
     argparser.add_argument('--param', metavar='KEY=VAL', action='append',
@@ -173,6 +192,11 @@ def main():
                               args.post_text,
                               args.title,
                               param_to_dict(args.param))
+        if args.post_image:
+            handler.post_image(args.blog,
+                               args.post_image,
+                               args.title,
+                               param_to_dict(args.param))
     except:
         print traceback.format_exc()
         if args.pdb:
