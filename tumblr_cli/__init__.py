@@ -20,7 +20,10 @@ import os.path
 import traceback
 import urllib
 import sys
-
+import urllib2
+import urlparse
+from poster.encode import multipart_encode
+from poster.streaminghttp import register_openers
 
 class TumblrHandler(object):
     EXPIRY_TIME = 86400000  # TODO: dummy value, how long is really the expiry time?
@@ -43,24 +46,39 @@ class TumblrHandler(object):
         print self.post(p_blog, params)
 
     def post_image(self, p_blog, p_file, p_caption, p_params):
-        openfile = None
-        if p_file == "-":
-            data = sys.stdin.read()
-        else:
-            openfile = open(p_file, 'rb')
-            # data = openfile
-            data = openfile.read().encode('base64').encode('utf8')
-            openfile.close()
-        params = {'type':'photo', 'state':'draft', 'caption':p_caption, 'data[0]':data}
+        openfile = open(p_file, 'rb')
+        params = {'type':'photo', 'state':'draft', 'caption':p_caption, 'data':openfile}
         if p_params:
             params.update(p_params)
-        print self.post(p_blog, params)
+        print self.post_photo(p_blog, params)
+        openfile.close()
 
     def post(self, p_blog, p_params):
         """ Post to blog, see defined params here: http://www.tumblr.com/api_docs#posting
         """
         client = self.get_client(p_blog)
         return client.create_post(p_params)
+
+    def post_photo(self, p_blog, post):
+        register_openers()
+        url = "http://api.tumblr.com/v2/blog/%s/post" % p_blog
+        open_file = post['data']
+        del(post['data'])
+        req = oauth2.Request.from_consumer_and_token(self.get_consumer(),
+                                                     token=self.get_access_token(p_blog),
+                                                     http_method="POST",
+                                                     http_url=url,
+                                                     parameters=post)
+        req.sign_request(oauth2.SignatureMethod_HMAC_SHA1(), self.get_consumer(), self.get_access_token(p_blog))
+        compiled_postdata = req.to_postdata()
+        all_upload_params = urlparse.parse_qs(compiled_postdata, keep_blank_values=True)
+        for key, val in all_upload_params.iteritems():
+            all_upload_params[key] = val[0]
+        all_upload_params['data'] = open_file
+        datagen, headers = multipart_encode(all_upload_params)
+        request = urllib2.Request(url, datagen, headers)
+        respdata = urllib2.urlopen(request).read()
+        return respdata
 
     def get_client(self, p_blog):
         return tumblr.TumblrClient(p_blog, self.get_consumer(), self.get_access_token(p_blog))
