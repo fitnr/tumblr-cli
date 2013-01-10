@@ -66,7 +66,6 @@ class BackupHandler(object):
         self.deleted_files = []
         self.added_files = []
         self.blog_dict = {'backup_cmd': "'" + "' '".join(sys.argv) + "'"}
-        # Other
 
     def get_list_of_files(self, p_dir, p_exclude=None, p_trav_pos="./"):
         ret_list = []
@@ -131,6 +130,7 @@ class BackupHandler(object):
             if not stripped_file in self.old_backup_files:
                 self.added_files.append(stripped_file)
             if p_updated:
+                print "Saved file '%s'." % stripped_file
                 self.updated_files.append(stripped_file)
 
     def save_file(self, p_path, p_content, p_check=True):
@@ -141,7 +141,6 @@ class BackupHandler(object):
             if not os.path.exists(directory):
                 os.makedirs(directory)
             self.save_str_file(p_path, json.dumps(p_content))
-            print "Saved file '%s'." % p_path
             self.register_file(p_path, True)
         else:
             self.register_file(p_path, False)
