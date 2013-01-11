@@ -20,7 +20,7 @@ import sys
 
 def get_argparser():
     argparser = argparse.ArgumentParser(description=
-                                        'Does backup of your Tumblr blog.')
+                                        'Does backup of a Tumblr blog.')
     argparser.add_argument('blog', action='store',
                            help="The blog to act on. E.g 'staff.tumblr.com' or 'www.klofver.eu'")
     argparser.add_argument('--out_mode', action='store', default='meta-img-html',
@@ -91,14 +91,15 @@ class BackupHandler(object):
     def backup(self, p_posts, p_mode, p_path):
         assert p_posts['meta']['status'] == 200, "Unexpected response meta: %s" % p_posts['meta']
         self.blog_dict.update([("blog_%s" % key, val) for (key, val) in p_posts['response']['blog'].items()])
+        abs_path = "%s/%s" % (self.root_dir, p_path)
         if p_mode == 'blob-file':
-            save_path = p_path % self.blog_dict
+            save_path = abs_path % self.blog_dict
             self.save_file(save_path, p_posts['response'])
         elif p_mode == 'one-post-files':
             for post_dict in p_posts['response']['posts']:
                 path_dict = dict(post_dict)
                 path_dict.update(self.blog_dict)
-                save_path = p_path % path_dict
+                save_path = abs_path % path_dict
                 self.save_file(save_path, post_dict)
         elif p_mode == 'meta-img-html':
             for post_dict in p_posts['response']['posts']:
@@ -106,7 +107,7 @@ class BackupHandler(object):
                 path_dict.update(self.blog_dict)
                 # [u'body', u'highlighted', u'reblog_key', u'format', u'timestamp', u'note_count', u'tags', u'id', u'post_url', u'state', u'short_url', u'date', u'title', u'type', u'slug', u'blog_name']
                 # [u'blog_updated', u'blog_posts', u'blog_ask', u'blog_url', u'blog_share_likes', 'backup_cmd', u'blog_name', u'blog_title', u'blog_description']
-                save_path = p_path % path_dict
+                save_path = abs_path % path_dict
                 meta_dict = dict(post_dict)
                 if meta_dict['type'] == 'text':
                     body = meta_dict.pop('body')

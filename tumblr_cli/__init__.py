@@ -9,7 +9,7 @@ http://code.google.com/p/tumblr-cli/
 '''
 
 import tumblr
-import tumblr.oauth as real_tumblr_oauth
+from tumblr.oauth import TumblrOAuthClient
 import oauth2
 tumblr.oauth = oauth2  # Because relative import is blocking tumblr lib from functioning
 import ConfigParser
@@ -97,10 +97,13 @@ class TumblrHandler(object):
     def authorize(self, p_blog, p_force):
         consumer_key = self.get_set('consumer', 'key')
         consumer_secret = self.get_set('consumer', 'secret')
-        tumblr_oauth = real_tumblr_oauth.TumblrOAuthClient(consumer_key,
-                                                           consumer_secret)
-        self.get_oauth_access(tumblr_oauth, p_blog, p_force)
-        self.write_config()
+        try:
+            tumblr_oauth = TumblrOAuthClient(consumer_key, consumer_secret)
+            self.get_oauth_access(tumblr_oauth, p_blog, p_force)
+            self.write_config()
+        except:
+            sys.stderr.write("\nFailed to get access keys. Please make sure you consumer "
+                             "key and secret are correct and try authorize again.\n")
 
     def write_config(self):
         f = open(self.config_file, 'w+')
