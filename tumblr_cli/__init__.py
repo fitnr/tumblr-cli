@@ -24,6 +24,9 @@ import urllib2
 import urlparse
 from poster.encode import multipart_encode
 from poster.streaminghttp import register_openers
+import lxml.etree
+import re
+
 
 class TumblrHandler(object):
     EXPIRY_TIME = 86400000  # TODO: dummy value, how long is really the expiry time?
@@ -32,15 +35,66 @@ class TumblrHandler(object):
         self.config_file = p_config_file
         self.cp = ConfigParser.ConfigParser()
         self.cp.read(self.config_file)
+        self.xpath_dict = None
+        self.regex_dict = None
+        self.body = None
+        self.is_dry_run = False
 
     def post_text(self, p_blog, p_file, p_title, p_params):
+        extracted_dict = self.extract_dict(p_file)
+        if self.body:
+            text = self.body % extracted_dict
+        else:
+            text = self.get_str_from_file(p_file)
+        title = p_title % extracted_dict
+        self.post_text_str(p_blog, text, title, p_params)
+
+    def extract_dict(self, p_source):
+        ret_list = [('n', '\n')]
+        if self.xpath_dict == None or self.regex_dict == None:
+            return dict(ret_list)
+        if p_source == '-':
+            source = sys.stdin
+        else:
+            source = p_source
+        if self.xpath_dict:
+            tree = lxml.etree.parse(source)
+            for key, xpath in self.xpath_dict.items():
+                ret_list.append((key, tree.xpath(xpath)))
+        if self.regex_dict:
+            source_str = self.get_str_from_file(p_source)
+            for key, regex in self.regex_dict.items():
+                found = re.findall(regex, source_str)
+                if len(found) > 0:
+                    value = found[0]
+                else:
+                    value = ""
+                ret_list.append((key, value))
+        return dict(ret_list)
+
+    def set_dry_run(self, p_is_dry_run):
+        self.is_dry_run = p_is_dry_run
+
+    def set_body(self, p_string):
+        self.body = p_string
+
+    def set_xpath_dict(self, p_xpath_dict):
+        self.xpath_dict = p_xpath_dict
+
+    def set_regex_dict(self, p_regex_dict):
+        self.regex_dict = p_regex_dict
+
+    def get_str_from_file(self, p_file):
         if p_file == "-":
             text = sys.stdin.read()
         else:
             openfile = open(p_file)
             text = openfile.read()
             openfile.close()
-        params = {'type':'text', 'state':'draft', 'title':p_title, 'body':text}
+        return text
+
+    def post_text_str(self, p_blog, p_text, p_title, p_params):
+        params = {'type':'text', 'state':'draft', 'title':p_title, 'body':p_text}
         if p_params:
             params.update(p_params)
         print self.post(p_blog, params)
@@ -56,12 +110,19 @@ class TumblrHandler(object):
     def post(self, p_blog, p_params):
         """ Post to blog, see defined params here: http://www.tumblr.com/api_docs#posting
         """
+        if self.is_dry_run:
+            print p_params
+            return
         client = self.get_client(p_blog)
         return client.create_post(p_params)
 
-    def post_photo(self, p_blog, post):
+    def post_photo(self, p_blog, p_post):
+        if self.is_dry_run:
+            print p_post
+            return
         register_openers()
         url = "http://api.tumblr.com/v2/blog/%s/post" % p_blog
+        post = list(p_post)
         open_file = post['data']
         del(post['data'])
         req = oauth2.Request.from_consumer_and_token(self.get_consumer(),
@@ -170,12 +231,20 @@ def get_argparser():
     argparser.add_argument('--param', metavar='KEY=VAL', action='append',
                            help=('Extra parameter. See valid parameters and values'
                                  ' here: http://www.tumblr.com/api_docs'))
+    argparser.add_argument('--xpath', metavar='KEY=XPATH', action='append',
+                           help='Xpaths for building body & title from xml')
+    argparser.add_argument('--regex', metavar='KEY=REGEX', action='append',
+                           help='Regex for building body & title from xml')
+    argparser.add_argument('--body', metavar='STRING', action='store', default=None,
+                           help='The body to be sent. If not set, the raw text in the file is sent.')
     argparser.add_argument('--forceauth', action='store_true', default=False,
                            help='Reauthorize to blog even if there already is a valid access token.')
     argparser.add_argument('--config', metavar='FILE', default="~/.tumblr-cli/config",
                            help="Configuration file. Default: [%(default)s]")
     argparser.add_argument('--pdb', action='store_true', default=False,
                            help='Puts you in pdb mode if any exceptions are raised.')
+    argparser.add_argument('--dry', action='store_true', default=False,
+                           help='Dry run. Doesn\'t post anything.')
     return argparser
 
 def param_to_dict(p_list):
@@ -206,18 +275,25 @@ def main():
         if args.blog == None:
             print "No blog to act on. Specify --blog=<BLOG>"
             exit(9)
+        if args.dry:
+            handler.set_dry_run(True)
         if args.authorize or args.forceauth:
             handler.authorize(args.blog, args.forceauth)
-        if args.post_text:
+        elif args.post_text:
+            handler.set_body(args.body)
+            handler.set_xpath_dict(param_to_dict(args.xpath))
+            handler.set_regex_dict(param_to_dict(args.regex))
             handler.post_text(args.blog,
                               args.post_text,
                               args.title,
                               param_to_dict(args.param))
-        if args.post_image:
+        elif args.post_image:
             handler.post_image(args.blog,
                                args.post_image,
                                args.title,
                                param_to_dict(args.param))
+        else:
+            print "Nothing to do.\n"
     except:
         print traceback.format_exc()
         if args.pdb:
