@@ -60,13 +60,18 @@ class TumblrHandler(object):
         if self.xpath_dict:
             tree = lxml.etree.parse(source)
             for key, xpath in self.xpath_dict.items():
-                ret_list.append((key, tree.xpath(xpath)))
+                xpath_res = tree.xpath(xpath)
+                if len(xpath_res) > 1:
+                    # TODO: Add index to key(make more keys) instead of setting list?
+                    ret_list.append((key, xpath_res))
+                elif len(xpath_res) == 1:
+                    ret_list.append((key, xpath_res[0].encode('utf-8')))
         if self.regex_dict:
             source_str = self.get_str_from_file(p_source)
             for key, regex in self.regex_dict.items():
                 found = re.findall(regex, source_str)
                 if len(found) > 0:
-                    value = found[0]
+                    value = found[0].encode('utf-8')
                 else:
                     value = ""
                 ret_list.append((key, value))
