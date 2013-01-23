@@ -253,10 +253,11 @@ def main():
             args.post_type = None
         handler = tumblr_cli.TumblrHandler(os.path.expanduser(args.config))
         client = handler.get_unauthorized_client(args.blog)
-        posts = client.get_blog_posts(args.post_type,
-                                      tumblr_cli.param_to_dict(args.param))
+        posts_iter = tumblr_cli.get_all_blog_posts(client, args.post_type,
+                                                   tumblr_cli.param_to_dict(args.param))
         bh = BackupHandler(args.root)
-        bh.backup(posts, args.out_mode, args.out_path)
+        for posts in posts_iter:
+            bh.backup(posts, args.out_mode, args.out_path)
         if args.rmdel:
             bh.remove_deleted()
         if args.git:

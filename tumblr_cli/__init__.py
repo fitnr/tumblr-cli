@@ -77,6 +77,20 @@ class TumblrHandler(object):
                 ret_list.append((key, value))
         return dict(ret_list)
 
+    def is_duplicate(self, p_blog, p_match_pairs, p_type=None):
+        client = self.get_client(p_blog)
+        posts_iter = get_all_blog_posts(client, p_type)
+        for posts in posts_iter:
+            for post in posts['response']['posts']:
+                match = True
+                for key, value in p_match_pairs:
+                    if post.get(key) != value:
+                        match = False
+                        break
+                if match == True:
+                    return True
+        return False
+
     def set_dry_run(self, p_is_dry_run):
         self.is_dry_run = p_is_dry_run
 
@@ -250,7 +264,23 @@ def get_argparser():
                            help='Puts you in pdb mode if any exceptions are raised.')
     argparser.add_argument('--dry', action='store_true', default=False,
                            help='Dry run. Doesn\'t post anything.')
+    argparser.add_argument('--duplicate-check', action='store_true', default=False,
+                           help='Checks whether a post with the title already exists, '
+                           'and if so, refuses to post it.')
     return argparser
+
+def get_all_blog_posts(p_client, post_type=None, request_params=None):
+    offset = 0
+    if request_params == None:
+        request_params = {}
+    while True:
+        request_params.update({'offset': offset})
+        twenty = p_client.get_blog_posts(post_type, request_params)
+        yield twenty
+        if len(twenty['response']['posts']) != 20:
+            break
+        else:
+            offset += 20
 
 def param_to_dict(p_list):
     if p_list == None:
@@ -288,10 +318,15 @@ def main():
             handler.set_body(args.body)
             handler.set_xpath_dict(param_to_dict(args.xpath))
             handler.set_regex_dict(param_to_dict(args.regex))
-            handler.post_text(args.blog,
-                              args.post_text,
-                              args.title,
-                              param_to_dict(args.param))
+            if (args.duplicate_check and
+                handler.is_duplicate(args.blog, [('title', args.title)])):
+                print ("A post with the title '%s' already exists. "
+                       "Not posting it." % args.title)
+            else:
+                handler.post_text(args.blog,
+                                  args.post_text,
+                                  args.title,
+                                  param_to_dict(args.param))
         elif args.post_image:
             handler.post_image(args.blog,
                                args.post_image,
