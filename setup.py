@@ -9,14 +9,16 @@ http://code.google.com/p/tumblr-cli/
 '''
 
 from distutils.core import setup
+import tumblr_cli
+
 setup(name='tumblr-cli',
       description='Python Tumblr CLI. Command line interface client for the Tumblr API.',
-      version='1.8',
+      version=tumblr_cli.__version__,
       author='Christian Klöfver',
       author_email='christian.klofver@gmail.com',
       license='GPL v2',
       url='http://code.google.com/p/tumblr-cli/',
-      download_url='https://tumblr-cli.googlecode.com/files/tumblr-cli-1.8.tar.gz',
+      download_url='https://tumblr-cli.googlecode.com/files/tumblr-cli-%s.tar.gz' % tumblr_cli.__version__,
       install_requires=['argparse', 'oauth2', 'tumblr2', 'GitPython', 'poster', 'lxml'],
       packages=['tumblr_cli'],
       entry_points={'console_scripts': ['tumblr-cli = tumblr_cli:main',

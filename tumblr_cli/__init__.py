@@ -7,6 +7,7 @@ http://code.google.com/p/tumblr-cli/
 
 @author: christian.klofver@gmail.com
 '''
+__version__ = '1.9'
 
 import tumblr
 from tumblr.oauth import TumblrOAuthClient
@@ -111,6 +112,21 @@ class TumblrHandler(object):
             text = openfile.read()
             openfile.close()
         return text
+
+    def delete_post(self, p_blog, p_post_id):
+        if self.is_dry_run:
+            print "Would have deleted post: %s" % p_post_id
+            return
+        client = self.get_client(p_blog)
+        return client.delete_post(p_post_id)
+
+    def list_posts(self, p_blog, p_format, p_params):
+        client = self.get_client(p_blog)
+        post_iter = get_all_blog_posts(client, post_type=None, request_params=p_params, p_bare_posts=True)
+        for post in post_iter:
+            post_print_dict = {'blob': post, 'n': '\n'}
+            post_print_dict.update(post)
+            sys.stdout.write((p_format % post_print_dict).encode("UTF-8"))
 
     def post_text_str(self, p_blog, p_text, p_title, p_params):
         params = {'type':'text', 'state':'draft', 'title':p_title, 'body':p_text}
@@ -238,7 +254,7 @@ class TumblrHandler(object):
                                   "http://www.klofver.eu/tumblr-cli"}))
 
 def get_argparser():
-    argparser = argparse.ArgumentParser(description='Tumblr Command Line Interface')
+    argparser = argparse.ArgumentParser(description='Tumblr Command Line Interface. Version %s' % __version__)
     argparser.add_argument('--blog', action='store', metavar='BLOG',
                            help='The blog to act on. E.g staff.tumblr.com or www.klofver.eu')
     argparser.add_argument('--authorize', action='store_true', default=False,
@@ -267,16 +283,24 @@ def get_argparser():
     argparser.add_argument('--duplicate-check', action='store_true', default=False,
                            help='Checks whether a post with the title already exists, '
                            'and if so, refuses to post it.')
+    argparser.add_argument('--delete_post', metavar='POST_ID',
+                           help='Deletes the post with given id from your blog')
+    argparser.add_argument('--list_posts', metavar='OUTPUT_FORMAT',
+                           help="Lists the posts of your blog. Example format: '%%(blob)%%(n)s'")
     return argparser
 
-def get_all_blog_posts(p_client, post_type=None, request_params=None):
+def get_all_blog_posts(p_client, post_type=None, request_params=None, p_bare_posts=False):
     offset = 0
     if request_params == None:
         request_params = {}
     while True:
         request_params.update({'offset': offset})
         twenty = p_client.get_blog_posts(post_type, request_params)
-        yield twenty
+        if p_bare_posts:
+            for post in twenty['response']['posts']:
+                yield post
+        else:
+            yield twenty
         if len(twenty['response']['posts']) != 20:
             break
         else:
@@ -332,6 +356,10 @@ def main():
                                args.post_image,
                                args.title,
                                param_to_dict(args.param))
+        elif args.delete_post:
+            print handler.delete_post(args.blog, args.delete_post)
+        elif args.list_posts:
+            handler.list_posts(args.blog, p_format=args.list_posts, p_params=param_to_dict(args.param))
         else:
             print "Nothing to do.\n"
     except:
