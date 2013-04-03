@@ -4,7 +4,7 @@ Created on Jan 6, 2013
 @author: chrisk
 '''
 import argparse
-import tumblr_cli
+import tumblr_cli.tumblr_client
 import traceback
 import pdb
 import tempfile
@@ -49,11 +49,11 @@ def main():
         page = get_page(args.notebook, args.directory)
         tmpfile = export_to_tmp_file(args.export_cmd % (args.notebook, page))
         print tmpfile
-        handler = tumblr_cli.TumblrHandler(os.path.expanduser(args.config))
+        handler = tumblr_cli.tumblr_client.TumblrHandler(os.path.expanduser(args.config))
         handler.post_text(args.blog,
                           tmpfile,
                           args.title,
-                          tumblr_cli.param_to_dict(args.param))
+                          tumblr_cli.tumblr_client.param_to_dict(args.param))
     except:
         print traceback.format_exc()
         if args.pdb:

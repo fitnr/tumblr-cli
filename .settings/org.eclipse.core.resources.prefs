@@ -1,4 +1,5 @@
 eclipse.preferences.version=1
 encoding//tumblr_cli/__init__.py=utf-8
+encoding//tumblr_cli/tumblr_client.py=utf-8
 encoding/setup.py=utf-8
 encoding/tumblr-cli.py=utf-8

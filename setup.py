@@ -21,7 +21,7 @@ setup(name='tumblr-cli',
       download_url='https://tumblr-cli.googlecode.com/files/tumblr-cli-%s.tar.gz' % tumblr_cli.__version__,
       install_requires=['argparse', 'oauth2', 'tumblr2', 'GitPython', 'poster', 'lxml'],
       packages=['tumblr_cli'],
-      entry_points={'console_scripts': ['tumblr-cli = tumblr_cli:main',
+      entry_points={'console_scripts': ['tumblr-cli = tumblr_cli.tumblr_client:main',
                                         'tumblr-cli-zim-tool = tumblr_cli.zim_tool:main',
                                         'tumblr-cli-backup = tumblr_cli.backup:main']},
       )

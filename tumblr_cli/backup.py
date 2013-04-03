@@ -11,7 +11,7 @@ import os
 import json
 import re
 import urllib
-import tumblr_cli
+import tumblr_cli.tumblr_client
 import git
 import fnmatch
 import glob
@@ -251,10 +251,10 @@ def main():
     try:
         if args.post_type == 'all':
             args.post_type = None
-        handler = tumblr_cli.TumblrHandler(os.path.expanduser(args.config))
+        handler = tumblr_cli.tumblr_client.TumblrHandler(os.path.expanduser(args.config))
         client = handler.get_unauthorized_client(args.blog)
-        posts_iter = tumblr_cli.get_all_blog_posts(client, args.post_type,
-                                                   tumblr_cli.param_to_dict(args.param))
+        posts_iter = tumblr_cli.tumblr_client.get_all_blog_posts(client, args.post_type,
+                                                   tumblr_cli.tumblr_client.param_to_dict(args.param))
         bh = BackupHandler(args.root)
         for posts in posts_iter:
             bh.backup(posts, args.out_mode, args.out_path)
